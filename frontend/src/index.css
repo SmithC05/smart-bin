@@ -1,9 +1,9 @@
+/* Leaflet CSS — must be first, before @tailwind directives */
+@import "leaflet/dist/leaflet.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-/* Leaflet CSS — required for map tiles and controls to render */
-@import "leaflet/dist/leaflet.css";
 
 @layer base {
   * {
