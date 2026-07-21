@@ -1,34 +1,17 @@
+import { useState, useEffect } from 'react'
 import {
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts'
 import {
-  Trash2,
-  AlertTriangle,
-  Route,
-  BarChart2,
-  CheckCircle,
-  AlertCircle,
-  Info,
+  Trash2, AlertTriangle, Route, BarChart2,
+  CheckCircle, AlertCircle, Clock,
 } from 'lucide-react'
+import { useDashboard, useAlerts } from '../hooks/useBins'
+import LoadingSpinner from '../components/LoadingSpinner'
+import ErrorBanner    from '../components/ErrorBanner'
+import { fillColor, fillLabel, fillBadgeClass, timeAgo } from '../utils/binHelpers'
 
-// ─── Mock Data ──────────────────────────────────────────────────────────────
-const bins = [
-  { id: 'BIN-01', location: 'Main Gate',     zone: 'A', pct: 91 },
-  { id: 'BIN-02', location: 'Canteen Block', zone: 'A', pct: 83 },
-  { id: 'BIN-03', location: 'Library',       zone: 'B', pct: 47 },
-  { id: 'BIN-04', location: 'Sports Ground', zone: 'B', pct: 22 },
-  { id: 'BIN-05', location: 'Admin Block',   zone: 'C', pct: 78 },
-  { id: 'BIN-06', location: 'Hostel Block',  zone: 'C', pct: 65 },
-  { id: 'BIN-07', location: 'Parking Lot',   zone: 'D', pct: 11 },
-  { id: 'BIN-08', location: 'Lab Complex',   zone: 'D', pct: 54 },
-]
-
+// ─── Mock hourly trend (real sensor history comes in a later prompt) ──────────
 const hourlyTrend = [
   { hour: '8am',  avg: 18 },
   { hour: '10am', avg: 24 },
@@ -39,55 +22,22 @@ const hourlyTrend = [
   { hour: 'Now',  avg: 68 },
 ]
 
-const ALERTS = [
-  {
-    id: 1,
-    message: 'BIN-01 at 91% — collection needed',
-    time: '2 min ago',
-    type: 'error',
-  },
-  {
-    id: 2,
-    message: 'BIN-02 reached 80% threshold',
-    time: '18 min ago',
-    type: 'warning',
-  },
-  {
-    id: 3,
-    message: 'Route A completed — 3 bins emptied',
-    time: '1 hr ago',
-    type: 'success',
-  },
-  {
-    id: 4,
-    message: 'BIN-07 reconnected after signal drop',
-    time: '2 hr ago',
-    type: 'success',
-  },
-]
-
-// ─── Derived Stats ───────────────────────────────────────────────────────────
-const totalBins      = bins.length
-const needCollection = bins.filter((b) => b.pct >= 80).length
-const optimizedRoutes = 2
-const avgFill        = Math.round(bins.reduce((sum, b) => sum + b.pct, 0) / bins.length)
-
 // ─── Helpers ─────────────────────────────────────────────────────────────────
-function fillColor(pct) {
-  if (pct >= 80) return { bar: '#dc2626', badge: 'bg-red-100 text-red-700',   label: 'Full'  }
-  if (pct >= 60) return { bar: '#d97706', badge: 'bg-amber-100 text-amber-700', label: 'High' }
-  return               { bar: '#16a34a', badge: 'bg-green-100 text-green-700', label: 'OK'   }
-}
-
-function alertStyle(type) {
-  switch (type) {
-    case 'error':   return { bg: 'bg-red-50',   border: 'border-red-100',   icon: <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />,   text: 'text-red-800'   }
-    case 'warning': return { bg: 'bg-amber-50', border: 'border-amber-100', icon: <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />, text: 'text-amber-800' }
-    default:        return { bg: 'bg-green-50', border: 'border-green-100', icon: <CheckCircle className="w-4 h-4 text-green-600 shrink-0" />,   text: 'text-green-800' }
+function alertStyle(level) {
+  if (level === 'danger')
+    return {
+      bg: 'bg-red-50', border: 'border-red-100',
+      icon: <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />,
+      text: 'text-red-800',
+    }
+  return {
+    bg: 'bg-green-50', border: 'border-green-100',
+    icon: <CheckCircle className="w-4 h-4 text-green-600 shrink-0" />,
+    text: 'text-green-800',
   }
 }
 
-// ─── Metric Card ─────────────────────────────────────────────────────────────
+// ─── Sub-components ───────────────────────────────────────────────────────────
 function MetricCard({ label, value, icon: Icon, iconBg, valueColor }) {
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 flex items-center gap-4">
@@ -102,7 +52,6 @@ function MetricCard({ label, value, icon: Icon, iconBg, valueColor }) {
   )
 }
 
-// ─── Custom Tooltip ──────────────────────────────────────────────────────────
 function CustomTooltip({ active, payload, label }) {
   if (!active || !payload?.length) return null
   return (
@@ -115,17 +64,42 @@ function CustomTooltip({ active, payload, label }) {
 
 // ─── Dashboard Page ───────────────────────────────────────────────────────────
 export default function Dashboard() {
-  const sortedBins = [...bins].sort((a, b) => b.pct - a.pct)
+  const { data, loading, error, refetch } = useDashboard()
+  const { alerts, loading: alertsLoading } = useAlerts()
+
+  // "Last updated X seconds ago" ticker
+  const [secondsAgo, setSecondsAgo] = useState(0)
+  useEffect(() => {
+    setSecondsAgo(0)
+    const t = setInterval(() => setSecondsAgo((s) => s + 1), 1000)
+    return () => clearInterval(t)
+  }, [data])
+
+  if (loading && !data) return <LoadingSpinner />
+
+  const totalBins      = data?.total_bins      ?? 0
+  const needCollection = data?.need_collection ?? 0
+  const avgFill        = data?.avg_fill_pct    ?? 0
+  const routesToday    = data?.routes_today    ?? 2
+  const bins           = data?.bins ? [...data.bins].sort((a, b) => b.latest_pct - a.latest_pct) : []
 
   return (
     <div className="space-y-6">
-      {/* Page header */}
-      <div>
-        <h2 className="page-title">Overview</h2>
-        <p className="page-subtitle">Real-time status of your smart waste management network.</p>
+      {/* Page header + last-updated ticker */}
+      <div className="flex items-start justify-between flex-wrap gap-2">
+        <div>
+          <h2 className="page-title">Overview</h2>
+          <p className="page-subtitle">Real-time status of your smart waste management network.</p>
+        </div>
+        <span className="flex items-center gap-1.5 text-xs text-gray-400 self-end pb-0.5">
+          <Clock className="w-3.5 h-3.5" />
+          Last updated {secondsAgo}s ago
+        </span>
       </div>
 
-      {/* ── 1. METRIC CARDS ────────────────────────────────────────────── */}
+      {error && <ErrorBanner message={error} onRetry={refetch} />}
+
+      {/* ── 1. METRIC CARDS ──────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         <MetricCard
           label="Total Bins"
@@ -142,7 +116,7 @@ export default function Dashboard() {
         />
         <MetricCard
           label="Optimized Routes Today"
-          value={optimizedRoutes}
+          value={routesToday}
           icon={Route}
           iconBg="bg-blue-50 text-blue-600"
         />
@@ -155,59 +129,66 @@ export default function Dashboard() {
         />
       </div>
 
-      {/* ── 2. BIN FILL LEVELS TABLE ───────────────────────────────────── */}
+      {/* ── 2. BIN FILL LEVELS TABLE ─────────────────────────────────────── */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
         <h3 className="font-semibold text-gray-800 mb-4 text-base">Bin Fill Levels</h3>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-100 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                <th className="pb-3 pr-4">Bin ID</th>
-                <th className="pb-3 pr-4">Location</th>
-                <th className="pb-3 pr-4">Zone</th>
-                <th className="pb-3 pr-4 w-48">Fill Level</th>
-                <th className="pb-3 pr-4 text-right">%</th>
-                <th className="pb-3 text-right">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              {sortedBins.map(({ id, location, zone, pct }) => {
-                const { bar, badge, label } = fillColor(pct)
-                return (
-                  <tr key={id} className="hover:bg-gray-50 transition-colors">
-                    <td className="py-3 pr-4 font-mono font-semibold text-gray-700">{id}</td>
-                    <td className="py-3 pr-4 text-gray-600">{location}</td>
-                    <td className="py-3 pr-4">
-                      <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-gray-100 text-gray-700 text-xs font-bold">
-                        {zone}
-                      </span>
-                    </td>
-                    <td className="py-3 pr-4">
-                      <div className="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden">
-                        <div
-                          className="h-2.5 rounded-full transition-all duration-500"
-                          style={{ width: `${pct}%`, backgroundColor: bar }}
-                        />
-                      </div>
-                    </td>
-                    <td className="py-3 pr-4 text-right font-semibold text-gray-700">{pct}%</td>
-                    <td className="py-3 text-right">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${badge}`}>
-                        {label}
-                      </span>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
+        {bins.length === 0 ? (
+          <p className="text-sm text-gray-400 text-center py-6">No bin data available.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-100 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                  <th className="pb-3 pr-4">Bin ID</th>
+                  <th className="pb-3 pr-4">Location</th>
+                  <th className="pb-3 pr-4">Zone</th>
+                  <th className="pb-3 pr-4 w-48">Fill Level</th>
+                  <th className="pb-3 pr-4 text-right">%</th>
+                  <th className="pb-3 text-right">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {bins.map((bin) => {
+                  const pct   = bin.latest_pct ?? 0
+                  const color = fillColor(pct)
+                  const badge = fillBadgeClass(pct)
+                  const label = fillLabel(pct)
+                  return (
+                    <tr key={bin.bin_id} className="hover:bg-gray-50 transition-colors">
+                      <td className="py-3 pr-4 font-mono font-semibold text-gray-700">{bin.bin_id}</td>
+                      <td className="py-3 pr-4 text-gray-600">{bin.location}</td>
+                      <td className="py-3 pr-4">
+                        <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-gray-100 text-gray-700 text-xs font-bold">
+                          {bin.zone}
+                        </span>
+                      </td>
+                      <td className="py-3 pr-4">
+                        <div className="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden">
+                          <div
+                            className="h-2.5 rounded-full transition-all duration-500"
+                            style={{ width: `${pct}%`, backgroundColor: color }}
+                          />
+                        </div>
+                      </td>
+                      <td className="py-3 pr-4 text-right font-semibold text-gray-700">{Math.round(pct)}%</td>
+                      <td className="py-3 text-right">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${badge}`}>
+                          {label}
+                        </span>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
-      {/* ── 3. HOURLY TREND CHART + 4. ALERTS — side by side on large screens */}
+      {/* ── 3. HOURLY TREND CHART + 4. ALERTS ────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
 
-        {/* Hourly Trend Chart */}
+        {/* Hourly Trend Chart (mock — sensor history coming later) */}
         <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-100 p-5">
           <h3 className="font-semibold text-gray-800 mb-1 text-base">Average fill level today</h3>
           <p className="text-xs text-gray-400 mb-4">Hourly average across all bins (%)</p>
@@ -220,25 +201,12 @@ export default function Dashboard() {
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
-              <XAxis
-                dataKey="hour"
-                tick={{ fontSize: 12, fill: '#9ca3af' }}
-                axisLine={false}
-                tickLine={false}
-              />
-              <YAxis
-                domain={[0, 100]}
-                tick={{ fontSize: 12, fill: '#9ca3af' }}
-                axisLine={false}
-                tickLine={false}
-                tickFormatter={(v) => `${v}%`}
-              />
+              <XAxis dataKey="hour" tick={{ fontSize: 12, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
+              <YAxis domain={[0, 100]} tick={{ fontSize: 12, fill: '#9ca3af' }} axisLine={false} tickLine={false} tickFormatter={(v) => `${v}%`} />
               <Tooltip content={<CustomTooltip />} />
               <Area
-                type="monotone"
-                dataKey="avg"
-                stroke="#16a34a"
-                strokeWidth={2.5}
+                type="monotone" dataKey="avg"
+                stroke="#16a34a" strokeWidth={2.5}
                 fill="url(#fillGrad)"
                 dot={{ r: 4, fill: '#16a34a', strokeWidth: 0 }}
                 activeDot={{ r: 6, fill: '#16a34a', stroke: '#fff', strokeWidth: 2 }}
@@ -247,26 +215,34 @@ export default function Dashboard() {
           </ResponsiveContainer>
         </div>
 
-        {/* Alerts Panel */}
+        {/* Live Alerts Panel */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 flex flex-col">
           <h3 className="font-semibold text-gray-800 mb-4 text-base">Recent Alerts</h3>
-          <div className="space-y-3 flex-1">
-            {ALERTS.map(({ id, message, time, type }) => {
-              const { bg, border, icon, text } = alertStyle(type)
-              return (
-                <div
-                  key={id}
-                  className={`flex items-start gap-3 p-3 rounded-lg border ${bg} ${border}`}
-                >
-                  <div className="mt-0.5">{icon}</div>
-                  <div className="flex-1 min-w-0">
-                    <p className={`text-sm font-medium leading-snug ${text}`}>{message}</p>
-                    <p className="text-xs text-gray-400 mt-0.5">{time}</p>
+          {alertsLoading && alerts.length === 0 ? (
+            <p className="text-xs text-gray-400 text-center py-4">Loading…</p>
+          ) : alerts.length === 0 ? (
+            <div className="flex flex-col items-center justify-center flex-1 gap-2 text-green-600 py-6">
+              <CheckCircle className="w-8 h-8" />
+              <p className="text-sm font-medium text-gray-500">All bins are OK</p>
+            </div>
+          ) : (
+            <div className="space-y-3 flex-1 overflow-y-auto">
+              {alerts.slice(0, 6).map((a, i) => {
+                const { bg, border, icon, text } = alertStyle(a.level)
+                return (
+                  <div key={i} className={`flex items-start gap-3 p-3 rounded-lg border ${bg} ${border}`}>
+                    <div className="mt-0.5">{icon}</div>
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-sm font-medium leading-snug ${text}`}>
+                        {a.bin_id} at {Math.round(a.fill_pct)}% — collection needed
+                      </p>
+                      <p className="text-xs text-gray-400 mt-0.5">{timeAgo(a.recorded_at)}</p>
+                    </div>
                   </div>
-                </div>
-              )
-            })}
-          </div>
+                )
+              })}
+            </div>
+          )}
         </div>
 
       </div>

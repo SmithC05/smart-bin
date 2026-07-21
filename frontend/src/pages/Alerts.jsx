@@ -1,67 +1,121 @@
-import { AlertTriangle, Info, CheckCircle, XCircle } from 'lucide-react'
+import { useState } from 'react'
+import { AlertCircle, CheckCircle } from 'lucide-react'
+import { useAlerts } from '../hooks/useBins'
+import LoadingSpinner from '../components/LoadingSpinner'
+import ErrorBanner    from '../components/ErrorBanner'
+import { formatDate, fillColor } from '../utils/binHelpers'
 
-const ALERTS = [
-  { id: 1, type: 'critical', bin: 'BIN-001', message: 'Fill level reached 92% — immediate collection required.', time: '5 min ago' },
-  { id: 2, type: 'warning',  bin: 'BIN-318', message: 'Overdue for collection by 3 days.',                     time: '1 hr ago' },
-  { id: 3, type: 'info',     bin: 'BIN-101', message: 'Sensor went offline — last seen 5 days ago.',            time: '2 hr ago' },
-  { id: 4, type: 'resolved', bin: 'BIN-205', message: 'Fill level back to normal after collection.',            time: '3 hr ago' },
-  { id: 5, type: 'critical', bin: 'BIN-088', message: 'Lid obstruction detected.',                             time: 'Yesterday' },
-]
-
-const alertStyles = {
-  critical: { bg: 'bg-red-50',    border: 'border-red-200',   icon: <XCircle className="w-5 h-5 text-red-500 shrink-0" />,       badge: 'bg-red-100 text-red-700' },
-  warning:  { bg: 'bg-amber-50',  border: 'border-amber-200', icon: <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0" />, badge: 'bg-amber-100 text-amber-700' },
-  info:     { bg: 'bg-blue-50',   border: 'border-blue-200',  icon: <Info className="w-5 h-5 text-blue-500 shrink-0" />,           badge: 'bg-blue-100 text-blue-700' },
-  resolved: { bg: 'bg-green-50',  border: 'border-green-200', icon: <CheckCircle className="w-5 h-5 text-green-500 shrink-0" />,   badge: 'bg-green-100 text-green-700' },
+// ─── Client-side date filter ──────────────────────────────────────────────────
+function isToday(isoStr) {
+  const d = new Date(isoStr)
+  const now = new Date()
+  return (
+    d.getDate() === now.getDate() &&
+    d.getMonth() === now.getMonth() &&
+    d.getFullYear() === now.getFullYear()
+  )
 }
 
+function isThisWeek(isoStr) {
+  const d = new Date(isoStr)
+  const now = new Date()
+  const weekAgo = new Date(now - 7 * 24 * 3600 * 1000)
+  return d >= weekAgo
+}
+
+const FILTERS = ['All', 'Today', 'This week']
+
 export default function Alerts() {
+  const { alerts, loading, error, refetch } = useAlerts()
+  const [activeFilter, setActiveFilter] = useState('All')
+
+  if (loading && alerts.length === 0) return <LoadingSpinner />
+
+  const filtered = alerts.filter((a) => {
+    if (activeFilter === 'Today')     return isToday(a.recorded_at)
+    if (activeFilter === 'This week') return isThisWeek(a.recorded_at)
+    return true
+  })
+
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div>
         <h2 className="page-title">Alerts</h2>
-        <p className="page-subtitle">System-wide alerts and notifications for your bin network.</p>
+        <p className="page-subtitle">Bins that crossed the 80% fill threshold.</p>
       </div>
 
-      {/* Summary counts */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        {[
-          { label: 'Critical', count: 2, color: 'text-red-600',   bg: 'bg-red-50' },
-          { label: 'Warnings', count: 1, color: 'text-amber-600', bg: 'bg-amber-50' },
-          { label: 'Info',     count: 1, color: 'text-blue-600',  bg: 'bg-blue-50' },
-          { label: 'Resolved', count: 1, color: 'text-green-600', bg: 'bg-green-50' },
-        ].map(({ label, count, color, bg }) => (
-          <div key={label} className={`card flex items-center gap-3 ${bg} border-0`}>
-            <span className={`text-2xl font-bold ${color}`}>{count}</span>
-            <span className="text-sm font-medium text-gray-600">{label}</span>
-          </div>
+      {error && <ErrorBanner message={error} onRetry={refetch} />}
+
+      {/* Filter bar */}
+      <div className="flex items-center gap-2">
+        {FILTERS.map((f) => (
+          <button
+            key={f}
+            onClick={() => setActiveFilter(f)}
+            className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all border ${
+              activeFilter === f
+                ? 'bg-green-600 text-white border-green-600'
+                : 'bg-white text-gray-600 border-gray-200 hover:border-green-400 hover:text-green-700'
+            }`}
+          >
+            {f}
+          </button>
         ))}
+        <span className="ml-auto text-xs text-gray-400">
+          Auto-refreshes every 15 s
+        </span>
       </div>
 
       {/* Alert list */}
-      <div className="space-y-3">
-        {ALERTS.map((alert) => {
-          const style = alertStyles[alert.type]
-          return (
-            <div
-              key={alert.id}
-              className={`flex items-start gap-4 p-4 rounded-xl border ${style.bg} ${style.border}`}
-            >
-              {style.icon}
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-semibold text-gray-800 text-sm">{alert.bin}</span>
-                  <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${style.badge} capitalize`}>
-                    {alert.type}
-                  </span>
+      {filtered.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-20 gap-3 text-green-600">
+          <CheckCircle className="w-12 h-12" />
+          <p className="text-base font-semibold text-gray-600">No alerts right now</p>
+          <p className="text-sm text-gray-400">All bins are within safe fill levels.</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {filtered.map((alert, i) => {
+            const pct   = alert.fill_pct ?? 0
+            const color = fillColor(pct)
+            return (
+              <div
+                key={i}
+                className="bg-white rounded-xl border border-red-100 p-4 flex items-start gap-4 shadow-sm hover:shadow-md transition-shadow"
+              >
+                {/* Icon */}
+                <div className="mt-0.5 flex items-center justify-center w-9 h-9 rounded-xl bg-red-50 shrink-0">
+                  <AlertCircle className="w-5 h-5 text-red-500" />
                 </div>
-                <p className="text-sm text-gray-600 mt-0.5">{alert.message}</p>
+
+                {/* Content */}
+                <div className="flex-1 min-w-0 space-y-2">
+                  <div className="flex items-center justify-between flex-wrap gap-1">
+                    <span className="font-mono font-bold text-gray-800 text-sm">{alert.bin_id}</span>
+                    <span className="text-xs text-gray-400">{formatDate(alert.recorded_at)}</span>
+                  </div>
+                  <p className="text-sm text-gray-600 truncate">{alert.location}</p>
+
+                  {/* Fill bar */}
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-gray-500">Fill at alert</span>
+                      <span className="font-bold" style={{ color }}>{Math.round(pct)}%</span>
+                    </div>
+                    <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
+                      <div
+                        className="h-2 rounded-full transition-all duration-500"
+                        style={{ width: `${pct}%`, backgroundColor: color }}
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
-              <span className="text-xs text-gray-400 shrink-0 mt-0.5">{alert.time}</span>
-            </div>
-          )
-        })}
-      </div>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }

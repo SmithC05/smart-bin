@@ -1,5 +1,6 @@
 import { useLocation } from 'react-router-dom'
 import { Bell, Search } from 'lucide-react'
+import { usePolling } from '../../context/PollingContext'
 
 const PAGE_TITLES = {
   '/':         'Dashboard',
@@ -10,8 +11,9 @@ const PAGE_TITLES = {
 }
 
 export default function Topbar() {
-  const { pathname } = useLocation()
-  const title = PAGE_TITLES[pathname] ?? 'SmartBin'
+  const { pathname }    = useLocation()
+  const { isFetching }  = usePolling()
+  const title           = PAGE_TITLES[pathname] ?? 'SmartBin'
 
   return (
     <header className="flex items-center justify-between px-6 py-3.5 bg-white border-b border-gray-100 shadow-sm shrink-0">
@@ -19,7 +21,13 @@ export default function Topbar() {
       <div className="flex items-center gap-3">
         <h1 className="text-lg font-semibold text-gray-900">{title}</h1>
         <span className="badge-live">
-          <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+          {/* Outer ring pulses when a fetch is in-flight */}
+          <span className="relative flex items-center justify-center w-1.5 h-1.5">
+            {isFetching && (
+              <span className="absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75 animate-ping" />
+            )}
+            <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+          </span>
           Live
         </span>
       </div>
