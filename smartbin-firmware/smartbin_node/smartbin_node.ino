@@ -63,6 +63,9 @@ bool postReading(float distance_cm) {
   HTTPClient http;
   http.begin(url);
   http.addHeader("Content-Type", "application/json");
+  if (strlen(DEVICE_API_KEY) > 0) {
+    http.addHeader("X-Device-Key", DEVICE_API_KEY);
+  }
 
   // Build JSON body using ArduinoJson
   StaticJsonDocument<200> doc;

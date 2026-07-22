@@ -95,6 +95,30 @@ export function useAlerts() {
   return { alerts, loading, error, refetch: fetch }
 }
 
+export function useRoutes() {
+  const [routes, setRoutes] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+
+  const fetch = useCallback(async () => {
+    try {
+      const res = await api.get('/routes/')
+      setRoutes(res.data)
+      setError(null)
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetch()
+  }, [fetch])
+
+  return { routes, loading, error, refetch: fetch }
+}
+
 export function useLiveBins() {
   const [bins, setBins] = useState([])
   const [loading, setLoading] = useState(true)
@@ -103,7 +127,7 @@ export function useLiveBins() {
   const [flashId, setFlashId] = useState(null)
   const { setWsActive } = usePolling()
 
-  useEffect(() => {
+  const fetch = useCallback(() => {
     api.get('/bins/')
       .then((res) => {
         setBins(res.data)
@@ -112,6 +136,10 @@ export function useLiveBins() {
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false))
   }, [])
+
+  useEffect(() => {
+    fetch()
+  }, [fetch])
 
   const handleMessage = useCallback((payload) => {
     setBins((prev) => prev.map((b) => (
@@ -135,5 +163,5 @@ export function useLiveBins() {
 
   useBinWebSocket(handleMessage)
 
-  return { bins, loading, error, lastUpdated, flashId }
+  return { bins, loading, error, lastUpdated, flashId, refetch: fetch }
 }

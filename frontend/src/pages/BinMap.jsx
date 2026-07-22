@@ -9,6 +9,7 @@ import markerIcon   from 'leaflet/dist/images/marker-icon.png'
 import markerShadow from 'leaflet/dist/images/marker-shadow.png'
 import { Navigation, Truck } from 'lucide-react'
 import { useLiveBins } from '../hooks/useBins'
+import api from '../api'
 import LoadingSpinner from '../components/LoadingSpinner'
 import { fillColor, fillBadgeClass, fillLabel } from '../utils/binHelpers'
 
@@ -70,6 +71,7 @@ export default function BinMap() {
 
   const [filter, setFilter]       = useState('All bins')
   const [flyTarget, setFlyTarget] = useState(null)
+  const [routeStatus, setRouteStatus] = useState('')
   const markersRef = useRef({})
 
   // CVRP route: bins ≥60%, sorted descending, loop back to first
@@ -95,6 +97,17 @@ export default function BinMap() {
       const marker = markersRef.current[bin.bin_id]
       if (marker) marker.openPopup()
     }, 900)
+  }
+
+  async function dispatchRoute() {
+    setRouteStatus('Planning route...')
+    try {
+      const planned = await api.post('/routes/', { bin_ids: routeBins.map((b) => b.bin_id) })
+      const dispatched = await api.post(`/routes/${planned.data.id}/dispatch/`)
+      setRouteStatus(`Dispatched ${dispatched.data.optimized_order.length} bins`)
+    } catch (e) {
+      setRouteStatus(e.response?.data?.detail || 'Route dispatch failed')
+    }
   }
 
   // Default map center: centroid of all bins, or fallback
@@ -179,7 +192,8 @@ export default function BinMap() {
             </ol>
           )}
           <button
-            onClick={() => console.log('Dispatch route:', routeBins.map((b) => b.bin_id))}
+            onClick={dispatchRoute}
+            disabled={routeBins.length === 0}
             className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold text-white transition-all active:scale-95"
             style={{ backgroundColor: '#16a34a' }}
             onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#15803d')}
@@ -188,6 +202,7 @@ export default function BinMap() {
             <Truck className="w-4 h-4" />
             Dispatch
           </button>
+          {routeStatus && <p className="text-xs text-gray-500">{routeStatus}</p>}
         </div>
       </aside>
 

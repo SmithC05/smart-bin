@@ -7,7 +7,7 @@ import {
   CheckCircle, AlertCircle, Clock,
 } from 'lucide-react'
 import api from '../api'
-import { useLiveBins, useAlerts } from '../hooks/useBins'
+import { useDashboard, useLiveBins, useAlerts } from '../hooks/useBins'
 import LoadingSpinner from '../components/LoadingSpinner'
 import ErrorBanner    from '../components/ErrorBanner'
 import { fillColor, fillLabel, fillBadgeClass, timeAgo } from '../utils/binHelpers'
@@ -56,8 +56,10 @@ function CustomTooltip({ active, payload, label }) {
 // ─── Dashboard Page ───────────────────────────────────────────────────────────
 export default function Dashboard() {
   const { bins: liveBins, loading, error, lastUpdated, flashId } = useLiveBins()
+  const { data: dashboard, refetch: refetchDashboard } = useDashboard()
   const { alerts, loading: alertsLoading } = useAlerts()
   const [trendData, setTrendData] = useState([])
+  const [simulating, setSimulating] = useState(false)
 
   // "Last updated X seconds ago" ticker
   const [secondsAgo, setSecondsAgo] = useState(0)
@@ -68,13 +70,20 @@ export default function Dashboard() {
   }, [liveBins])
 
   useEffect(() => {
-    api.get('/bins/BIN-01/history/').then((res) => {
-      setTrendData(res.data.readings.map((r) => ({
-        hour: new Date(r.recorded_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        avg: Math.round(r.fill_pct),
-      })))
-    })
+    api.get('/trend/').then((res) => setTrendData(res.data))
   }, [])
+
+  async function simulateReadings() {
+    setSimulating(true)
+    try {
+      await api.post('/simulate/', {})
+      const trend = await api.get('/trend/')
+      setTrendData(trend.data)
+      refetchDashboard()
+    } finally {
+      setSimulating(false)
+    }
+  }
 
   if (loading && liveBins.length === 0) return <LoadingSpinner />
 
@@ -83,7 +92,7 @@ export default function Dashboard() {
   const avgFill        = liveBins.length
     ? (liveBins.reduce((s, b) => s + (b.latest_pct ?? 0), 0) / liveBins.length).toFixed(1)
     : 0
-  const routesToday    = 2
+  const routesToday    = dashboard?.routes_today ?? 0
   const bins           = [...liveBins].sort((a, b) => b.latest_pct - a.latest_pct)
 
   return (
@@ -98,6 +107,13 @@ export default function Dashboard() {
           <Clock className="w-3.5 h-3.5" />
           Last updated {secondsAgo}s ago
         </span>
+        <button
+          onClick={simulateReadings}
+          disabled={simulating}
+          className="px-3 py-2 rounded-lg bg-gray-900 text-white text-xs font-semibold disabled:opacity-50"
+        >
+          {simulating ? 'Simulating...' : 'Simulate Readings'}
+        </button>
       </div>
 
       <p className="text-xs text-gray-400 px-5 py-1">
@@ -128,6 +144,13 @@ export default function Dashboard() {
           value={routesToday}
           icon={Route}
           iconBg="bg-blue-50 text-blue-600"
+        />
+        <MetricCard
+          label="Open Alerts"
+          value={dashboard?.open_alerts ?? alerts.length}
+          icon={AlertCircle}
+          iconBg="bg-red-50 text-red-600"
+          valueColor="text-red-600"
         />
         <MetricCard
           label="Avg Fill Level"

@@ -12,6 +12,7 @@
 
 // This node's identity
 #define BIN_ID        "BIN-01"   // change per node before flashing
+#define DEVICE_API_KEY ""        // optional: must match the bin's dashboard API key when set
 
 // HC-SR04 pins
 #define TRIG_PIN      5
