@@ -1,4 +1,5 @@
 # bins/serializers.py
+from django.utils import timezone
 from rest_framework import serializers
 from .models import Bin, BinReading
 
@@ -12,13 +13,14 @@ class BinReadingSerializer(serializers.ModelSerializer):
 class BinSerializer(serializers.ModelSerializer):
     latest_pct = serializers.SerializerMethodField()
     status     = serializers.SerializerMethodField()
+    last_seen  = serializers.SerializerMethodField()
 
     class Meta:
         model = Bin
         fields = [
             'id', 'bin_id', 'location', 'zone',
             'lat', 'lng', 'is_active', 'created_at',
-            'latest_pct', 'status',
+            'latest_pct', 'status', 'last_seen',
         ]
 
     def _latest_pct(self, obj):
@@ -36,6 +38,20 @@ class BinSerializer(serializers.ModelSerializer):
         if pct >= 60:
             return 'high'
         return 'ok'
+
+    def get_last_seen(self, obj):
+        reading = obj.readings.first()
+        if not reading:
+            return 'Never'
+
+        diff = int((timezone.now() - reading.recorded_at).total_seconds())
+        if diff < 60:
+            return 'Just now'
+        if diff < 3600:
+            return f'{diff // 60} min ago'
+        if diff < 86400:
+            return f'{diff // 3600} hr ago'
+        return f'{diff // 86400} days ago'
 
 
 class BinDetailSerializer(BinSerializer):

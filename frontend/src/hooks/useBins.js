@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import api from '../api'
 import { usePolling } from '../context/PollingContext'
+import { useBinWebSocket } from './useWebSocket'
 
 // ─── useDashboard ─────────────────────────────────────────────────────────────
 export function useDashboard() {
@@ -92,4 +93,47 @@ export function useAlerts() {
   }, [fetch])
 
   return { alerts, loading, error, refetch: fetch }
+}
+
+export function useLiveBins() {
+  const [bins, setBins] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const [lastUpdated, setLastUpdated] = useState(null)
+  const [flashId, setFlashId] = useState(null)
+  const { setWsActive } = usePolling()
+
+  useEffect(() => {
+    api.get('/bins/')
+      .then((res) => {
+        setBins(res.data)
+        setError(null)
+      })
+      .catch((e) => setError(e.message))
+      .finally(() => setLoading(false))
+  }, [])
+
+  const handleMessage = useCallback((payload) => {
+    setBins((prev) => prev.map((b) => (
+      b.bin_id === payload.bin_id
+        ? {
+            ...b,
+            latest_pct: payload.fill_pct,
+            status: payload.status,
+            last_seen: payload.last_seen,
+          }
+        : b
+    )))
+
+    setLastUpdated(new Date())
+    setFlashId(payload.bin_id)
+    setWsActive(true)
+
+    setTimeout(() => setFlashId(null), 1500)
+    setTimeout(() => setWsActive(false), 2000)
+  }, [setWsActive])
+
+  useBinWebSocket(handleMessage)
+
+  return { bins, loading, error, lastUpdated, flashId }
 }

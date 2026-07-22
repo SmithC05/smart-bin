@@ -6,22 +6,13 @@ import {
   Trash2, AlertTriangle, Route, BarChart2,
   CheckCircle, AlertCircle, Clock,
 } from 'lucide-react'
-import { useDashboard, useAlerts } from '../hooks/useBins'
+import api from '../api'
+import { useLiveBins, useAlerts } from '../hooks/useBins'
 import LoadingSpinner from '../components/LoadingSpinner'
 import ErrorBanner    from '../components/ErrorBanner'
 import { fillColor, fillLabel, fillBadgeClass, timeAgo } from '../utils/binHelpers'
 
-// ─── Mock hourly trend (real sensor history comes in a later prompt) ──────────
-const hourlyTrend = [
-  { hour: '8am',  avg: 18 },
-  { hour: '10am', avg: 24 },
-  { hour: '12pm', avg: 38 },
-  { hour: '2pm',  avg: 45 },
-  { hour: '4pm',  avg: 52 },
-  { hour: '6pm',  avg: 61 },
-  { hour: 'Now',  avg: 68 },
-]
-
+// ─── Hourly trend from BIN-01 history ─────────────────────────────────────────
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function alertStyle(level) {
   if (level === 'danger')
@@ -64,8 +55,9 @@ function CustomTooltip({ active, payload, label }) {
 
 // ─── Dashboard Page ───────────────────────────────────────────────────────────
 export default function Dashboard() {
-  const { data, loading, error, refetch } = useDashboard()
+  const { bins: liveBins, loading, error, lastUpdated, flashId } = useLiveBins()
   const { alerts, loading: alertsLoading } = useAlerts()
+  const [trendData, setTrendData] = useState([])
 
   // "Last updated X seconds ago" ticker
   const [secondsAgo, setSecondsAgo] = useState(0)
@@ -73,15 +65,26 @@ export default function Dashboard() {
     setSecondsAgo(0)
     const t = setInterval(() => setSecondsAgo((s) => s + 1), 1000)
     return () => clearInterval(t)
-  }, [data])
+  }, [liveBins])
 
-  if (loading && !data) return <LoadingSpinner />
+  useEffect(() => {
+    api.get('/bins/BIN-01/history/').then((res) => {
+      setTrendData(res.data.readings.map((r) => ({
+        hour: new Date(r.recorded_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        avg: Math.round(r.fill_pct),
+      })))
+    })
+  }, [])
 
-  const totalBins      = data?.total_bins      ?? 0
-  const needCollection = data?.need_collection ?? 0
-  const avgFill        = data?.avg_fill_pct    ?? 0
-  const routesToday    = data?.routes_today    ?? 2
-  const bins           = data?.bins ? [...data.bins].sort((a, b) => b.latest_pct - a.latest_pct) : []
+  if (loading && liveBins.length === 0) return <LoadingSpinner />
+
+  const totalBins      = liveBins.length
+  const needCollection = liveBins.filter((b) => (b.latest_pct ?? 0) >= 80).length
+  const avgFill        = liveBins.length
+    ? (liveBins.reduce((s, b) => s + (b.latest_pct ?? 0), 0) / liveBins.length).toFixed(1)
+    : 0
+  const routesToday    = 2
+  const bins           = [...liveBins].sort((a, b) => b.latest_pct - a.latest_pct)
 
   return (
     <div className="space-y-6">
@@ -97,7 +100,13 @@ export default function Dashboard() {
         </span>
       </div>
 
-      {error && <ErrorBanner message={error} onRetry={refetch} />}
+      <p className="text-xs text-gray-400 px-5 py-1">
+        {lastUpdated
+          ? `Last updated: ${lastUpdated.toLocaleTimeString()}`
+          : 'Waiting for data...'}
+      </p>
+
+      {error && <ErrorBanner message={error} />}
 
       {/* ── 1. METRIC CARDS ──────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
@@ -154,7 +163,12 @@ export default function Dashboard() {
                   const badge = fillBadgeClass(pct)
                   const label = fillLabel(pct)
                   return (
-                    <tr key={bin.bin_id} className="hover:bg-gray-50 transition-colors">
+                    <tr
+                      key={bin.bin_id}
+                      className={`hover:bg-gray-50 transition-colors ${
+                        flashId === bin.bin_id ? 'bg-green-50 duration-700' : ''
+                      }`}
+                    >
                       <td className="py-3 pr-4 font-mono font-semibold text-gray-700">{bin.bin_id}</td>
                       <td className="py-3 pr-4 text-gray-600">{bin.location}</td>
                       <td className="py-3 pr-4">
@@ -188,12 +202,12 @@ export default function Dashboard() {
       {/* ── 3. HOURLY TREND CHART + 4. ALERTS ────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
 
-        {/* Hourly Trend Chart (mock — sensor history coming later) */}
+        {/* Hourly Trend Chart */}
         <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-100 p-5">
           <h3 className="font-semibold text-gray-800 mb-1 text-base">Average fill level today</h3>
           <p className="text-xs text-gray-400 mb-4">Hourly average across all bins (%)</p>
           <ResponsiveContainer width="100%" height={220}>
-            <AreaChart data={hourlyTrend} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
+            <AreaChart data={trendData} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
               <defs>
                 <linearGradient id="fillGrad" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%"  stopColor="#16a34a" stopOpacity={0.18} />

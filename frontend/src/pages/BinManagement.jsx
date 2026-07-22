@@ -1,9 +1,11 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Search, MapPin } from 'lucide-react'
-import { useBins } from '../hooks/useBins'
+import api from '../api'
+import { useLiveBins } from '../hooks/useBins'
 import LoadingSpinner from '../components/LoadingSpinner'
 import ErrorBanner    from '../components/ErrorBanner'
+import SparklineChart from '../components/SparklineChart'
 import { fillColor, fillLabel, fillBadgeClass } from '../utils/binHelpers'
 
 const ZONES = ['All', 'A', 'B', 'C', 'D']
@@ -39,11 +41,27 @@ function CircleFill({ pct }) {
 
 // ─── Bins (BinManagement) Page ────────────────────────────────────────────────
 export default function BinManagement() {
-  const { bins, loading, error, refetch } = useBins()
+  const { bins, loading, error, flashId } = useLiveBins()
   const navigate = useNavigate()
 
   const [search, setSearch] = useState('')
   const [zone, setZone]     = useState('All')
+  const [binHistory, setBinHistory] = useState({})
+
+  useEffect(() => {
+    if (bins.length === 0) return
+
+    Promise.all(
+      bins.map((b) => (
+        api.get(`/bins/${b.bin_id}/history/`)
+          .then((res) => ({ id: b.bin_id, readings: res.data.readings }))
+      )),
+    ).then((results) => {
+      const map = {}
+      results.forEach((r) => { map[r.id] = r.readings })
+      setBinHistory(map)
+    })
+  }, [bins])
 
   if (loading && bins.length === 0) return <LoadingSpinner />
 
@@ -62,7 +80,7 @@ export default function BinManagement() {
         <p className="page-subtitle">Add, edit, and monitor all registered bins.</p>
       </div>
 
-      {error && <ErrorBanner message={error} onRetry={refetch} />}
+      {error && <ErrorBanner message={error} />}
 
       {/* Search + Zone filter */}
       <div className="flex flex-wrap items-center gap-3">
@@ -113,7 +131,11 @@ export default function BinManagement() {
               <button
                 key={bin.bin_id}
                 onClick={() => navigate(`/map?bin=${bin.bin_id}`)}
-                className="bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-md hover:border-green-200 transition-all p-5 text-left group"
+                className={`bg-white rounded-xl shadow-sm hover:shadow-md hover:border-green-200 transition-all p-5 text-left group ${
+                  flashId === bin.bin_id
+                    ? 'border-2 border-green-400 duration-700'
+                    : 'border border-gray-200'
+                }`}
               >
                 {/* Top row: Bin ID + Zone badge */}
                 <div className="flex items-start justify-between mb-3">
@@ -140,6 +162,9 @@ export default function BinManagement() {
                     </span>
                     <span className="text-xs text-gray-400">Tap to view on map</span>
                   </div>
+                </div>
+                <div className="mt-4 h-10">
+                  <SparklineChart readings={binHistory[bin.bin_id] || []} pct={pct} />
                 </div>
               </button>
             )

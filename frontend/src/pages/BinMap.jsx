@@ -8,7 +8,7 @@ import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png'
 import markerIcon   from 'leaflet/dist/images/marker-icon.png'
 import markerShadow from 'leaflet/dist/images/marker-shadow.png'
 import { Navigation, Truck } from 'lucide-react'
-import { useBins } from '../hooks/useBins'
+import { useLiveBins } from '../hooks/useBins'
 import LoadingSpinner from '../components/LoadingSpinner'
 import { fillColor, fillBadgeClass, fillLabel } from '../utils/binHelpers'
 
@@ -64,7 +64,7 @@ function AutoOpenPopup({ binId, markersRef, bins }) {
 const FILTERS = ['All bins', 'Needs collection', 'Route only']
 
 export default function BinMap() {
-  const { bins, loading } = useBins()
+  const { bins, loading, flashId } = useLiveBins()
   const [searchParams]    = useSearchParams()
   const autoOpenBinId     = searchParams.get('bin')
 
@@ -242,7 +242,7 @@ export default function BinMap() {
                 <CircleMarker
                   key={bin.bin_id}
                   center={[bin.lat, bin.lng]}
-                  radius={14}
+                  radius={flashId === bin.bin_id ? 18 : 14}
                   pathOptions={{ fillColor: color, color: '#ffffff', weight: 2, fillOpacity: 0.9 }}
                   ref={(el) => { if (el) markersRef.current[bin.bin_id] = el }}
                 >
@@ -262,6 +262,9 @@ export default function BinMap() {
                         <div className="h-2 rounded-full" style={{ width: `${pct}%`, backgroundColor: color }} />
                       </div>
                       <p className="text-[10px] text-gray-400">Status: {bin.status}</p>
+                      <p className="text-xs text-gray-400 mt-1">
+                        Last seen: {bin.last_seen || '-'}
+                      </p>
                     </div>
                   </Popup>
                 </CircleMarker>

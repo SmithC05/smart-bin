@@ -1,11 +1,13 @@
 # bins/views.py
-from django.db.models import Avg
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
+from django.shortcuts import get_object_or_404
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 
 from .models import Bin, BinReading
-from .serializers import BinSerializer, BinDetailSerializer, BinReadingSerializer
+from .serializers import BinSerializer, BinDetailSerializer
 
 # ── Constants ─────────────────────────────────────────────────────────────────
 BIN_DEPTH_CM = 40.0   # total bin depth used for distance → fill % conversion
@@ -44,6 +46,33 @@ class BinDetailView(APIView):
 class BinReadingCreateView(APIView):
     """Called by ESP32 nodes to submit a new distance reading."""
 
+    def _broadcast_update(self, bin_obj, reading):
+        pct = reading.fill_pct
+        if pct >= 80:
+            bin_status = 'full'
+        elif pct >= 60:
+            bin_status = 'high'
+        else:
+            bin_status = 'ok'
+
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            'bin_updates',
+            {
+                'type': 'bin.update',
+                'data': {
+                    'bin_id': bin_obj.bin_id,
+                    'location': bin_obj.location,
+                    'zone': bin_obj.zone,
+                    'fill_pct': reading.fill_pct,
+                    'distance_cm': reading.distance_cm,
+                    'recorded_at': reading.recorded_at.isoformat(),
+                    'status': bin_status,
+                    'last_seen': 'Just now',
+                },
+            },
+        )
+
     def post(self, request, bin_id):
         try:
             bin_obj = Bin.objects.get(bin_id=bin_id)
@@ -66,6 +95,7 @@ class BinReadingCreateView(APIView):
             fill_pct=fill_pct,
             distance_cm=distance_cm,
         )
+        self._broadcast_update(bin_obj, reading)
 
         return Response(
             {
@@ -128,3 +158,19 @@ class AlertsView(APIView):
                 })
 
         return Response(alerts)
+
+
+class BinHistoryView(APIView):
+    """Return up to 50 oldest-to-newest readings for a bin."""
+
+    def get(self, request, bin_id):
+        bin_obj = get_object_or_404(Bin, bin_id=bin_id)
+        readings = bin_obj.readings.order_by('recorded_at')[:50]
+        data = [
+            {
+                'fill_pct': r.fill_pct,
+                'recorded_at': r.recorded_at.isoformat(),
+            }
+            for r in readings
+        ]
+        return Response({'bin_id': bin_id, 'readings': data})
