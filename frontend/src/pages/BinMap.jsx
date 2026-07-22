@@ -116,7 +116,7 @@ export default function BinMap() {
         bins.reduce((s, b) => s + b.lat, 0) / bins.length,
         bins.reduce((s, b) => s + b.lng, 0) / bins.length,
       ]
-    : [12.822, 80.0448]
+    : [12.9714, 80.0438]
 
   return (
     <div className="flex -m-6 h-[calc(100vh-64px)] overflow-hidden">

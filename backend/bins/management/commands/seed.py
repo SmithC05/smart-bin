@@ -5,14 +5,14 @@ from bins.views import _sync_alert_for_reading
 
 
 SEED_BINS = [
-    {'bin_id': 'BIN-01', 'location': 'Main Gate', 'zone': 'A', 'lat': 12.8230, 'lng': 80.0444, 'fill_pct': 91},
-    {'bin_id': 'BIN-02', 'location': 'Canteen Block', 'zone': 'A', 'lat': 12.8225, 'lng': 80.0452, 'fill_pct': 83},
-    {'bin_id': 'BIN-03', 'location': 'Library', 'zone': 'B', 'lat': 12.8218, 'lng': 80.0438, 'fill_pct': 47},
-    {'bin_id': 'BIN-04', 'location': 'Sports Ground', 'zone': 'B', 'lat': 12.8210, 'lng': 80.0460, 'fill_pct': 22},
-    {'bin_id': 'BIN-05', 'location': 'Admin Block', 'zone': 'C', 'lat': 12.8235, 'lng': 80.0430, 'fill_pct': 78},
-    {'bin_id': 'BIN-06', 'location': 'Hostel Block', 'zone': 'C', 'lat': 12.8205, 'lng': 80.0445, 'fill_pct': 65},
-    {'bin_id': 'BIN-07', 'location': 'Parking Lot', 'zone': 'D', 'lat': 12.8215, 'lng': 80.0468, 'fill_pct': 11},
-    {'bin_id': 'BIN-08', 'location': 'Lab Complex', 'zone': 'D', 'lat': 12.8228, 'lng': 80.0455, 'fill_pct': 54},
+    {'bin_id': 'BIN-01', 'location': 'Main Gate', 'zone': 'A', 'lat': 12.9714, 'lng': 80.0438, 'fill_pct': 91},
+    {'bin_id': 'BIN-02', 'location': 'Canteen Block', 'zone': 'A', 'lat': 12.9709, 'lng': 80.0446, 'fill_pct': 83},
+    {'bin_id': 'BIN-03', 'location': 'Library', 'zone': 'B', 'lat': 12.9702, 'lng': 80.0432, 'fill_pct': 47},
+    {'bin_id': 'BIN-04', 'location': 'Sports Ground', 'zone': 'B', 'lat': 12.9694, 'lng': 80.0454, 'fill_pct': 22},
+    {'bin_id': 'BIN-05', 'location': 'Admin Block', 'zone': 'C', 'lat': 12.9719, 'lng': 80.0424, 'fill_pct': 78},
+    {'bin_id': 'BIN-06', 'location': 'Hostel Block', 'zone': 'C', 'lat': 12.9689, 'lng': 80.0439, 'fill_pct': 65},
+    {'bin_id': 'BIN-07', 'location': 'Parking Lot', 'zone': 'D', 'lat': 12.9699, 'lng': 80.0462, 'fill_pct': 11},
+    {'bin_id': 'BIN-08', 'location': 'Lab Complex', 'zone': 'D', 'lat': 12.9712, 'lng': 80.0449, 'fill_pct': 54},
 ]
 
 DEFAULT_SETTINGS = {
@@ -41,7 +41,7 @@ class Command(BaseCommand):
             data = seed.copy()
             fill_pct = data.pop('fill_pct')
 
-            bin_obj, bin_created = Bin.objects.get_or_create(
+            bin_obj, bin_created = Bin.objects.update_or_create(
                 bin_id=data['bin_id'],
                 defaults={
                     **data,
@@ -56,7 +56,7 @@ class Command(BaseCommand):
                 created_bins += 1
                 self.stdout.write(f'  [+] Created bin: {bin_obj.bin_id} - {bin_obj.location}')
             else:
-                self.stdout.write(f'  [~] Bin already exists: {bin_obj.bin_id}')
+                self.stdout.write(f'  [~] Updated bin: {bin_obj.bin_id}')
 
             if not bin_obj.readings.exists():
                 reading = BinReading.objects.create(
