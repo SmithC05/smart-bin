@@ -12,11 +12,14 @@
 
 // This node's identity
 #define BIN_ID        "BIN-01"   // change per node before flashing
-#define DEVICE_API_KEY ""        // optional: must match the bin's dashboard API key when set
+#define DEVICE_API_KEY "YOUR_API_KEY" // Used for X-API-Key header
 
 // HC-SR04 pins
 #define TRIG_PIN      5
 #define ECHO_PIN      18
+
+// Buzzer pin
+#define BUZZER_PIN    4
 
 // Bin physical depth in cm (must match Django BIN_DEPTH_CM = 40.0)
 #define BIN_DEPTH_CM  40.0
