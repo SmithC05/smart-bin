@@ -14,12 +14,12 @@ export default function NotificationDropdown() {
   const fetchNotifications = async () => {
     try {
       start()
-      const res = await api.get('/api/notifications/')
+      const res = await api.get('/notifications/')
       const data = res.data.results || res.data // handle pagination if any
       const unread = data.filter(n => !n.is_read)
       setNotifications(data.slice(0, 5)) // show top 5 in dropdown
       setUnreadCount(unread.length) // Wait, maybe use /unread-count/ for accuracy if paginated
-      const countRes = await api.get('/api/notifications/unread-count/')
+      const countRes = await api.get('/notifications/unread-count/')
       setUnreadCount(countRes.data.count)
     } catch (err) {
       console.error('Failed to fetch notifications', err)
@@ -47,7 +47,7 @@ export default function NotificationDropdown() {
   const markAsRead = async (id, e) => {
     e.stopPropagation()
     try {
-      await api.post(`/api/notifications/${id}/read/`)
+      await api.post(`/notifications/${id}/read/`)
       fetchNotifications()
     } catch (err) {
       console.error(err)
@@ -56,7 +56,7 @@ export default function NotificationDropdown() {
 
   const markAllAsRead = async () => {
     try {
-      await api.post('/api/notifications/read-all/')
+      await api.post('/notifications/read-all/')
       fetchNotifications()
       setIsOpen(false)
     } catch (err) {

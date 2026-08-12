@@ -5,7 +5,8 @@ import {
   Trash2, AlertTriangle, Navigation2, Users, ClipboardList,
   AlertOctagon, CheckCircle2, CircleDot, ChevronRight, Map,
   Clock, MapPin, Search, FileText, TruckIcon, UserCircle, RefreshCw,
-  Radio, Wrench, ShieldAlert, AlertCircle, CalendarDays, Activity
+  Radio, Wrench, ShieldAlert, AlertCircle, CalendarDays, Activity,
+  Layers, Bell
 } from 'lucide-react'
 import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
@@ -845,7 +846,7 @@ function BottomSection({ auditLogs, navigate }) {
           <div className="p-4 grid grid-cols-2 gap-2 flex-1">
             {actions.map(({ label, path, icon: Icon }) => (
               <button
-                key={path}
+                key={label}
                 onClick={() => navigate(path)}
                 className="flex flex-col items-center justify-center gap-2 px-2 py-3 border border-slate-200 hover:border-primary-500 hover:bg-primary-50 transition-all group text-center"
               >

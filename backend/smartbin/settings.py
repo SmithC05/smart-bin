@@ -55,6 +55,8 @@ MIDDLEWARE = [
 ]
 
 ROOT_URLCONF = 'smartbin.urls'
+WSGI_APPLICATION = 'smartbin.wsgi.application'
+ASGI_APPLICATION = 'smartbin.asgi.application'
 
 TEMPLATES = [
     {
@@ -145,3 +147,10 @@ Q_CLUSTER = {
 SECURE_BROWSER_XSS_FILTER = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = 'DENY'
+
+# ── CHANNELS ─────────────────────────────────────────────────────────────────
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels.layers.InMemoryChannelLayer"
+    }
+}

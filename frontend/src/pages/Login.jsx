@@ -128,6 +128,7 @@ function RouteVisualization({ reduced }) {
         <motion.circle
           r={3.5}
           fill="#95bed9"
+          initial={{ cx: nodes[0].cx, cy: nodes[0].cy }}
           animate={{
             cx: nodes.map(n => n.cx),
             cy: nodes.map(n => n.cy),

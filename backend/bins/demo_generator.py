@@ -189,6 +189,9 @@ class DemoDataService:
     @transaction.atomic
     def reset_demo_dataset(request_user):
         """Safely deletes only simulated data."""
+        actor_name = request_user.user.username if request_user else 'SYSTEM'
+        role = request_user.role if request_user else ''
+        
         # Django CASCADE handles most models gracefully. 
         # But users must be handled separately since UserProfile -> User is not CASCADE from UserProfile.
         demo_profiles = UserProfile.objects.filter(is_demo=True)
@@ -200,10 +203,12 @@ class DemoDataService:
         # Delete demo users
         User.objects.filter(id__in=demo_user_ids).delete()
 
+        audit_user = request_user if request_user and request_user.user_id not in demo_user_ids else None
+
         AuditLog.objects.create(
-            user=request_user,
-            actor_name=request_user.user.username if request_user else 'SYSTEM',
-            role=request_user.role if request_user else '',
+            user=audit_user,
+            actor_name=actor_name,
+            role=role,
             action='DEMO_DATA_RESET',
             module='DEMO_GENERATOR',
             record_id='MULTIPLE',
