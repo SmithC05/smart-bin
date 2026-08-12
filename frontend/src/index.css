@@ -19,35 +19,31 @@
   }
 
   body {
-    font-family: 'Inter', ui-sans-serif, system-ui;
-    background-color: #ffffff;
-    color: #111827;
+    font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+    background-color: #f8fafc;
+    color: #1e293b;
   }
 }
 
 @layer components {
   .nav-link {
-    @apply flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 text-gray-600 hover:bg-primary-50 hover:text-primary-700;
+    @apply flex items-center gap-3 px-3 py-2 rounded-sm text-sm font-medium transition-colors duration-200 text-slate-300 hover:bg-slate-800 hover:text-white border-l-2 border-transparent;
   }
 
   .nav-link.active {
-    @apply bg-primary-600 text-white shadow-md hover:bg-primary-700 hover:text-white;
+    @apply bg-slate-800 text-white border-l-2 border-primary-500 shadow-none;
   }
 
   .card {
-    @apply bg-white rounded-2xl shadow-sm border border-gray-100 p-6;
-  }
-
-  .badge-live {
-    @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700;
+    @apply bg-white rounded-none border border-slate-300 shadow-none;
   }
 
   .page-title {
-    @apply text-2xl font-bold text-gray-900;
+    @apply text-2xl font-semibold text-slate-900 tracking-tight;
   }
 
   .page-subtitle {
-    @apply text-sm text-gray-500 mt-1;
+    @apply text-sm text-slate-600 mt-1;
   }
 }
 
@@ -60,7 +56,7 @@
 }
 ::-webkit-scrollbar-thumb {
   background: #cbd5e1;
-  border-radius: 3px;
+  border-radius: 0px;
 }
 ::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;

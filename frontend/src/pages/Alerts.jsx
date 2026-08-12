@@ -53,10 +53,10 @@ export default function Alerts() {
           <button
             key={f}
             onClick={() => setActiveFilter(f)}
-            className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all border ${
+            className={`px-4 py-1.5 rounded-none text-sm font-bold uppercase tracking-wider transition-all border ${
               activeFilter === f
-                ? 'bg-green-600 text-white border-green-600'
-                : 'bg-white text-gray-600 border-gray-200 hover:border-green-400 hover:text-green-700'
+                ? 'bg-slate-800 text-white border-slate-800'
+                : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-100'
             }`}
           >
             {f}
@@ -82,10 +82,10 @@ export default function Alerts() {
             return (
               <div
                 key={i}
-                className="bg-white rounded-xl border border-red-100 p-4 flex items-start gap-4 shadow-sm hover:shadow-md transition-shadow"
+                className="bg-white border border-slate-300 p-4 flex items-start gap-4 shadow-none hover:bg-slate-50 transition-colors"
               >
                 {/* Icon */}
-                <div className="mt-0.5 flex items-center justify-center w-9 h-9 rounded-xl bg-red-50 shrink-0">
+                <div className="mt-0.5 flex items-center justify-center w-9 h-9 bg-red-50 border border-red-200 shrink-0">
                   <AlertCircle className="w-5 h-5 text-red-500" />
                 </div>
 

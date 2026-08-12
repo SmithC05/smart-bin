@@ -146,7 +146,7 @@ export default function BinMap() {
                 <button
                   key={bin.bin_id}
                   onClick={() => handleBinClick(bin)}
-                  className="w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors group"
+                  className="w-full text-left px-4 py-3 hover:bg-slate-100 transition-colors group border-b border-slate-200"
                 >
                   <div className="flex items-center justify-between mb-1.5">
                     <div>
@@ -194,10 +194,7 @@ export default function BinMap() {
           <button
             onClick={dispatchRoute}
             disabled={routeBins.length === 0}
-            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold text-white transition-all active:scale-95"
-            style={{ backgroundColor: '#16a34a' }}
-            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#15803d')}
-            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#16a34a')}
+            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-none text-sm font-bold text-white transition-all bg-primary-700 hover:bg-primary-800 disabled:opacity-50 uppercase tracking-wider"
           >
             <Truck className="w-4 h-4" />
             Dispatch
