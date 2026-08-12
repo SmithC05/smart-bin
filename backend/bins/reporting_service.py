@@ -42,10 +42,11 @@ class ReportingService:
     def apply_filters(queryset, request, date_field='created_at', prefix=''):
         from_date, to_date = ReportingService.parse_dates(request)
         
-        if from_date:
-            queryset = queryset.filter(**{f"{date_field}__gte": from_date})
-        if to_date:
-            queryset = queryset.filter(**{f"{date_field}__lte": to_date})
+        if date_field:
+            if from_date:
+                queryset = queryset.filter(**{f"{date_field}__gte": from_date})
+            if to_date:
+                queryset = queryset.filter(**{f"{date_field}__lte": to_date})
             
         muni = request.query_params.get('municipality')
         zone = request.query_params.get('zone')
@@ -84,7 +85,7 @@ class ReportingService:
         vehicles = ReportingService.apply_filters(vehicles, request)
 
         staff = get_scoped_staff(user, UserProfile.objects.all())
-        staff = ReportingService.apply_filters(staff, request)
+        staff = ReportingService.apply_filters(staff, request, date_field=None)
 
         schedule_counts = schedules.values('status').annotate(count=Count('id'))
         sched_stats = {s['status']: s['count'] for s in schedule_counts}
@@ -275,7 +276,7 @@ class ReportingService:
     @staticmethod
     def get_workforce_report(user, request):
         staff = get_scoped_staff(user, UserProfile.objects.all())
-        staff = ReportingService.apply_filters(staff, request)
+        staff = ReportingService.apply_filters(staff, request, date_field=None)
         
         role_counts = staff.values('role').annotate(count=Count('id'))
         status_counts = staff.values('employment_status').annotate(count=Count('id'))

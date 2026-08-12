@@ -589,7 +589,10 @@ const Reports = () => {
                 return (
                   <button
                     key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
+                    onClick={() => {
+                      setReportData(null);
+                      setActiveTab(tab.id);
+                    }}
                     className={`flex items-center px-4 py-4 text-xs font-bold uppercase tracking-wider transition-colors text-left border-l-4 ${
                       isActive 
                         ? 'bg-indigo-50 text-indigo-700 border-indigo-600' 
