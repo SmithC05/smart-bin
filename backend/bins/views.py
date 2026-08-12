@@ -145,16 +145,33 @@ class BinReadingCreateView(APIView):
                 return Response({'detail': 'Invalid device API key.'}, status=status.HTTP_401_UNAUTHORIZED)
 
         distance_cm = request.data.get('distance_cm')
-        if distance_cm is None:
-            return Response({'detail': '"distance_cm" is required.'}, status=status.HTTP_400_BAD_REQUEST)
+        fill_percentage = request.data.get('fill_percentage')
+        
+        # We also accept bin_id and status from the body per your firmware
+        body_bin_id = request.data.get('bin_id')
+        status_val = request.data.get('status')
+        
+        if distance_cm is None and fill_percentage is None:
+            return Response({'detail': '"distance_cm" or "fill_percentage" is required.'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            distance_cm = float(distance_cm)
+            if distance_cm is not None:
+                distance_cm = float(distance_cm)
+            if fill_percentage is not None:
+                fill_percentage = float(fill_percentage)
         except (TypeError, ValueError):
-            return Response({'detail': '"distance_cm" must be a number.'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'detail': 'Metrics must be numbers.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        fill_pct = _compute_fill_pct(bin_obj, distance_cm)
+        if fill_percentage is not None:
+            fill_pct = fill_percentage
+            if distance_cm is None:
+                distance_cm = _distance_from_fill(bin_obj, fill_pct)
+        else:
+            fill_pct = _compute_fill_pct(bin_obj, distance_cm)
+
         reading = BinReading.objects.create(bin=bin_obj, fill_pct=fill_pct, distance_cm=distance_cm)
+        
+        # This will trigger an alert if fill_pct >= bin_obj.alert_threshold_pct (which is 80)
         alert = _sync_alert_for_reading(bin_obj, reading)
         _broadcast_update(bin_obj, reading)
 
@@ -163,6 +180,7 @@ class BinReadingCreateView(APIView):
                 'bin_id': bin_obj.bin_id,
                 'fill_pct': round(fill_pct, 2),
                 'distance_cm': distance_cm,
+                'status': status_val or _status_for(bin_obj, fill_pct),
                 'alert_id': alert.id if alert else None,
                 'recorded_at': reading.recorded_at,
             },
